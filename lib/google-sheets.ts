@@ -141,6 +141,7 @@ export async function saveKanbanData(data: { tasks: any, columns: any, columnOrd
         // Update Tasks
         const tasksSheet = doc.sheetsByTitle['Tasks'] || await doc.addSheet({ title: 'Tasks', headerValues: ['id', 'title', 'priority', 'deadline', 'dueDate', 'progress', 'isCompleted', 'isCancelled', 'isArchived', 'description', 'checklist'] });
         await tasksSheet.clearRows();
+        await tasksSheet.setHeaderRow(['id', 'title', 'priority', 'deadline', 'dueDate', 'progress', 'isCompleted', 'isCancelled', 'isArchived', 'description', 'checklist']);
         const taskRows = Object.values(data.tasks).map((task: any) => ({
             id: task.id,
             title: task.title,
