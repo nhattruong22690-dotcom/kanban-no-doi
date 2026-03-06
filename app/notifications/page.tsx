@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   MoreHorizontal
 } from 'lucide-react';
-import { useRef } from 'react';
 import { Toaster, toast } from 'sonner';
 import BottomNav from '@/components/BottomNav';
 import { cn } from '@/lib/utils';
@@ -37,9 +36,22 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isBrowser, setIsBrowser] = useState(false);
-  const [data, setData] = useState<any>(null);
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const lastSavedDataRef = useRef<string>('');
+
+  // Helper: gọi API action-based
+  const callApi = async (action: string, payload: any) => {
+    try {
+      const response = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, payload }),
+      });
+      if (!response.ok) {
+        console.error(`API ${action} failed`);
+      }
+    } catch (error) {
+      console.error(`API ${action} network error:`, error);
+    }
+  };
 
   useEffect(() => {
     setIsBrowser(true);
@@ -48,12 +60,9 @@ export default function NotificationsPage() {
         const response = await fetch('/api/data');
         if (response.ok) {
           const fetchedData = await response.json();
-          setData(fetchedData);
           if (fetchedData && fetchedData.notifications) {
             setNotifications(fetchedData.notifications);
-            lastSavedDataRef.current = JSON.stringify(fetchedData.notifications);
           }
-          setIsDataLoaded(true);
         }
       } catch (error) {
         console.error('Failed to fetch notifications', error);
@@ -65,35 +74,9 @@ export default function NotificationsPage() {
     fetchData();
   }, []);
 
-  // Save changes to server
-  useEffect(() => {
-    if (!isBrowser || isLoading || !isDataLoaded) return;
-
-    const currentNotifsStr = JSON.stringify(notifications);
-    if (currentNotifsStr === lastSavedDataRef.current) return;
-
-    const saveData = async () => {
-      try {
-        const response = await fetch('/api/data', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notifications }), // ONLY send notifications
-        });
-
-        if (response.ok) {
-          lastSavedDataRef.current = currentNotifsStr;
-        }
-      } catch (error) {
-        console.error('Failed to save notifications', error);
-      }
-    };
-
-    const timer = setTimeout(saveData, 1000);
-    return () => clearTimeout(timer);
-  }, [notifications, data, isBrowser, isLoading, isDataLoaded]);
-
   const markAllRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    callApi('mark_all_read', {});
     toast.success('Hết nợ thông báo rồi!', {
       description: 'Đã đánh dấu đọc hết tất cả.'
     });
@@ -101,10 +84,12 @@ export default function NotificationsPage() {
 
   const markAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    callApi('mark_notification_read', { notifId: id });
   };
 
   const deleteNotification = (id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
+    callApi('delete_notification', { notifId: id });
     toast.success('Xóa nợ thành công!', {
       description: 'Thông báo đã biến mất không dấu vết.'
     });
