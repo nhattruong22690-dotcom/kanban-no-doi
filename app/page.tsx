@@ -84,21 +84,21 @@ const calculateTaskStatus = (dueDateStr: string | undefined, isCompleted: boolea
     const daysLate = Math.abs(diffDays);
     return {
       text: 'Lười thối thây!',
-      class: 'text-red-600 dark:text-red-400 uppercase text-[10px] font-black',
+      class: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 uppercase text-[10px] font-black px-2.5 py-0.5 rounded-full animate-pulse shadow-sm shadow-red-500/10',
       lateText: `Trễ ${daysLate} ngày rồi đấy!`
     };
   } else if (diffHours <= 24) {
     // Due soon (within 24h)
     return {
       text: 'Vắt chân lên cổ mà chạy!',
-      class: 'text-amber-600 dark:text-amber-500 font-bold',
+      class: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-sm',
       lateText: ''
     };
   } else {
     // On track
     return {
       text: 'Tạm chấp nhận',
-      class: 'text-emerald-500 font-medium',
+      class: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800 text-[10px] font-medium px-2.5 py-0.5 rounded-full',
       lateText: ''
     };
   }
@@ -808,104 +808,109 @@ export default function KanbanPage() {
                                       style={provided.draggableProps.style}
                                       className="outline-none"
                                     >
-                                      <div
-                                        onClick={() => setSelectedTask(task)}
-                                        className={cn(
-                                          "bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200/50 dark:border-slate-700/50 flex flex-col gap-3 hover:shadow-lg hover:-translate-y-1 hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-all duration-200 cursor-pointer",
-                                          task.isCompleted && "opacity-60 grayscale-[0.3]",
-                                          task.lateText && "animate-shake",
-                                          snapshot.isDragging && "shadow-xl rotate-2 ring-2 ring-blue-500 z-50 scale-105"
-                                        )}
-                                      >
-                                        <div className="flex justify-between items-start">
-                                          <div className="flex items-center gap-2">
-                                            <span className={cn("px-2 py-1 text-[10px] font-bold rounded uppercase tracking-tight", task.priorityClass)}>
-                                              {task.priority}
-                                            </span>
-                                            {task.iconName && renderTaskIcon(task.iconName)}
-                                          </div>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setSelectedTask(task);
-                                            }}
-                                            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
-                                            title="Nhìn gì?"
-                                          >
-                                            <MoreHorizontal className="w-5 h-5 text-slate-400" />
-                                          </button>
-                                        </div>
-                                        <h4 className={cn("text-sm font-bold leading-snug text-slate-800 dark:text-slate-100", task.isCompleted && "line-through text-slate-500 dark:text-slate-400")}>
-                                          {task.title}
-                                        </h4>
-
-                                        {task.description && (
-                                          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5 whitespace-pre-wrap">
-                                            {task.description}
-                                          </p>
-                                        )}
-
-                                        <div className="space-y-2 pt-1 border-t border-slate-50 dark:border-slate-800/50">
-                                          <div className="flex items-center justify-between text-[11px]">
-                                            <span className={cn("font-medium flex items-center gap-1", task.deadlineClass)}>
-                                              {renderDeadlineIcon(task.deadlineIconName)}
-                                              {task.deadline}
-                                            </span>
-                                            {task.statusText && (
-                                              <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                  <span className={cn("font-bold cursor-help", task.statusClass)}>{task.statusText}</span>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                  <p>{getTooltipText(task)}</p>
-                                                </TooltipContent>
-                                              </Tooltip>
+                                      {(() => {
+                                        const status = calculateTaskStatus(task.dueDate, task.isCompleted || false);
+                                        return (
+                                          <div
+                                            onClick={() => setSelectedTask(task)}
+                                            className={cn(
+                                              "bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200/50 dark:border-slate-700/50 flex flex-col gap-3 hover:shadow-lg hover:-translate-y-1 hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-all duration-200 cursor-pointer",
+                                              task.isCompleted && "opacity-60 grayscale-[0.3]",
+                                              status.lateText && "animate-shake",
+                                              snapshot.isDragging && "shadow-xl rotate-2 ring-2 ring-blue-500 z-50 scale-105"
                                             )}
-                                          </div>
-
-                                          {/* Checklist & Progress */}
-                                          {task.checklist && task.checklist.length > 0 && (
-                                            <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1">
-                                              <div className="flex items-center gap-1.5">
-                                                <CheckSquare className="w-3 h-3" />
-                                                <span>{task.checklist.filter((i: any) => i.completed).length}/{task.checklist.length}</span>
+                                          >
+                                            <div className="flex justify-between items-start">
+                                              <div className="flex items-center gap-2">
+                                                <span className={cn("px-2 py-1 text-[10px] font-bold rounded uppercase tracking-tight", getPriorityClass(task.priority))}>
+                                                  {task.priority}
+                                                </span>
+                                                {task.iconName && renderTaskIcon(task.iconName)}
                                               </div>
-                                              <span>{task.progress}%</span>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setSelectedTask(task);
+                                                }}
+                                                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
+                                                title="Nhìn gì?"
+                                              >
+                                                <MoreHorizontal className="w-5 h-5 text-slate-400" />
+                                              </button>
                                             </div>
-                                          )}
+                                            <h4 className={cn("text-sm font-bold leading-snug text-slate-800 dark:text-slate-100", task.isCompleted && "line-through text-slate-500 dark:text-slate-400")}>
+                                              {task.title}
+                                            </h4>
 
-                                          {(!task.checklist || task.checklist.length === 0) && task.progress > 0 && (
-                                            <div className="flex items-center justify-end text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1">
-                                              <span>{task.progress}%</span>
-                                            </div>
-                                          )}
+                                            {task.description && (
+                                              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5 mb-2 whitespace-pre-wrap">
+                                                {task.description}
+                                              </p>
+                                            )}
 
-                                          <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-700/50 rounded-full overflow-hidden mt-1.5">
-                                            <div
-                                              className={cn(
-                                                "h-full rounded-full transition-all duration-500",
-                                                task.progress === 100 ? "bg-emerald-500" : "bg-blue-500 dark:bg-blue-400"
-                                              )}
-                                              style={{ width: `${task.progress}%` }}
-                                            ></div>
-                                          </div>
-                                        </div>
-                                        {(task.attachments || task.lateText) && (
-                                          <div className="flex items-center justify-between mt-1 pt-3 border-t border-slate-50 dark:border-slate-700/50">
-                                            <div className="flex items-center gap-2">
-                                              {task.attachments && (
-                                                <div className="flex items-center gap-1 text-slate-400 text-[11px]">
-                                                  <Paperclip className="w-3.5 h-3.5" />
-                                                  <span>{task.attachments}</span>
+                                            <div className="space-y-2 pt-1 border-t border-slate-50 dark:border-slate-800/50">
+                                              <div className="flex items-center justify-between text-[11px]">
+                                                <span className={cn("font-medium flex items-center gap-1", task.deadlineClass)}>
+                                                  {renderDeadlineIcon(task.deadlineIconName)}
+                                                  {task.deadline}
+                                                </span>
+                                                {status.text && (
+                                                  <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                      <span className={cn("cursor-help shadow-sm whitespace-nowrap", status.class)}>{status.text}</span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                      <p>{getTooltipText(task)}</p>
+                                                    </TooltipContent>
+                                                  </Tooltip>
+                                                )}
+                                              </div>
+
+                                              {/* Checklist & Progress */}
+                                              {task.checklist && task.checklist.length > 0 && (
+                                                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1">
+                                                  <div className="flex items-center gap-1.5">
+                                                    <CheckSquare className="w-3 h-3" />
+                                                    <span>{task.checklist.filter((i: any) => i.completed).length}/{task.checklist.length}</span>
+                                                  </div>
+                                                  <span>{task.progress}%</span>
                                                 </div>
                                               )}
-                                              {task.lateText && (
-                                                <div className="text-[10px] font-bold text-red-500">{task.lateText}</div>
+
+                                              {(!task.checklist || task.checklist.length === 0) && task.progress > 0 && (
+                                                <div className="flex items-center justify-end text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1">
+                                                  <span>{task.progress}%</span>
+                                                </div>
                                               )}
+
+                                              <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-700/50 rounded-full overflow-hidden mt-1.5">
+                                                <div
+                                                  className={cn(
+                                                    "h-full rounded-full transition-all duration-500",
+                                                    task.progress === 100 ? "bg-emerald-500" : "bg-blue-500 dark:bg-blue-400"
+                                                  )}
+                                                  style={{ width: `${task.progress}%` }}
+                                                ></div>
+                                              </div>
                                             </div>
+                                            {(task.attachments || status.lateText) && (
+                                              <div className="flex items-center justify-between mt-1 pt-3 border-t border-slate-50 dark:border-slate-700/50">
+                                                <div className="flex items-center gap-2">
+                                                  {task.attachments && (
+                                                    <div className="flex items-center gap-1 text-slate-400 text-[11px]">
+                                                      <Paperclip className="w-3.5 h-3.5" />
+                                                      <span>{task.attachments}</span>
+                                                    </div>
+                                                  )}
+                                                  {status.lateText && (
+                                                    <div className="text-[10px] font-bold text-red-500">{status.lateText}</div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )}
                                           </div>
-                                        )}
-                                      </div>
+                                        );
+                                      })()}
                                     </div>
                                   )}
                                 </Draggable>

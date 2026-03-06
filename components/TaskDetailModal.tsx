@@ -34,6 +34,41 @@ type TaskDetailModalProps = {
   columns?: any;
 };
 
+// Helper to calculate status based on due date
+const calculateTaskStatus = (dueDateStr: string | undefined, isCompleted: boolean) => {
+  if (!dueDateStr || isCompleted) return { text: '', class: '', lateText: '' };
+
+  const now = new Date();
+  const dueDate = new Date(dueDateStr);
+  const diffTime = dueDate.getTime() - now.getTime();
+  const diffHours = diffTime / (1000 * 60 * 60);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffTime < 0) {
+    // Overdue
+    const daysLate = Math.abs(diffDays);
+    return {
+      text: 'Lười thối thây!',
+      class: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 uppercase text-[10px] font-black px-2.5 py-0.5 rounded-full animate-pulse shadow-sm shadow-red-500/10',
+      lateText: `Trễ ${daysLate} ngày rồi đấy!`
+    };
+  } else if (diffHours <= 24) {
+    // Due soon (within 24h)
+    return {
+      text: 'Vắt chân lên cổ mà chạy!',
+      class: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-sm',
+      lateText: ''
+    };
+  } else {
+    // On track
+    return {
+      text: 'Tạm chấp nhận',
+      class: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800 text-[10px] font-medium px-2.5 py-0.5 rounded-full',
+      lateText: ''
+    };
+  }
+};
+
 export default function TaskDetailModal({ isOpen, onClose, task, onDelete, onUpdate, onMove, columns }: TaskDetailModalProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -352,9 +387,18 @@ export default function TaskDetailModal({ isOpen, onClose, task, onDelete, onUpd
                 <div className="space-y-2">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tình trạng nợ</p>
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/30 px-2.5 py-0.5 text-xs font-bold text-blue-700 dark:text-blue-400">
-                      Vẫn đang ngâm
-                    </span>
+                    {(() => {
+                      const status = calculateTaskStatus(task.dueDate, task.isCompleted || false);
+                      return status.text ? (
+                        <span className={cn("inline-flex items-center rounded-full text-xs font-bold", status.class)}>
+                          {status.text}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/30 px-2.5 py-0.5 text-xs font-bold text-blue-700 dark:text-blue-400">
+                          {task.isCompleted ? 'Tu thành chính quả' : 'Chưa rõ'}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="space-y-2 text-right">
