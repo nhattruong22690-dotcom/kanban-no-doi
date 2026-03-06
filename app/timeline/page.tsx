@@ -134,7 +134,7 @@ export default function TimelinePage() {
 
   // +30% size: 60 → 78, 30 → 40
   const DAY_WIDTH = viewMode === 'week' ? 78 : 40;
-  const LABEL_WIDTH = 180; // was 120
+  const LABEL_WIDTH = 220; // increased from 180
 
   // Calculate bar position
   const getTaskBar = (task: any) => {
@@ -409,7 +409,7 @@ export default function TimelinePage() {
                       style={{ width: `${LABEL_WIDTH}px` }}
                     >
                       <div className="flex flex-col min-w-0 flex-1 justify-center">
-                        <span className="text-sm font-bold truncate leading-tight mb-1">{task.title}</span>
+                        <span className="text-sm font-bold whitespace-normal line-clamp-2 leading-tight mb-1">{task.title}</span>
                         <div className="flex items-center gap-1.5 mb-1.5">
                           <span className="text-[10px] text-slate-400 font-medium">
                             {dueDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
