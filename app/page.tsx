@@ -317,6 +317,7 @@ export default function KanbanPage() {
     const newTask: Task = {
       id: newTaskId,
       title: taskData.title,
+      description: taskData.description || '',
       priority: taskData.priority,
       priorityClass: priorityClass,
       iconName: 'layout',
@@ -329,6 +330,7 @@ export default function KanbanPage() {
       progress: 0,
       progressClass: 'bg-blue-500',
       lateText: status.lateText,
+      checklist: [],
     };
 
     setData(prev => {
@@ -347,6 +349,10 @@ export default function KanbanPage() {
         }
       };
     });
+
+    // Auto-open modal after creation
+    setSelectedTask(newTask);
+
     toast.success('Lại thêm nợ đời à? Chúc may mắn nhé!', {
       description: 'Ghi vào đây rồi thì lo mà làm đi!'
     });

@@ -30,12 +30,20 @@ export async function fetchKanbanData() {
     const doc = await getGoogleSheet();
 
     // Sheet 1: Tasks
-    const tasksSheet = doc.sheetsByTitle['Tasks'] || await doc.addSheet({ title: 'Tasks', headerValues: ['id', 'title', 'priority', 'deadline', 'dueDate', 'progress', 'isCompleted', 'isCancelled', 'isArchived', 'description'] });
+    const tasksSheet = doc.sheetsByTitle['Tasks'] || await doc.addSheet({ title: 'Tasks', headerValues: ['id', 'title', 'priority', 'deadline', 'dueDate', 'progress', 'isCompleted', 'isCancelled', 'isArchived', 'description', 'checklist'] });
     const taskRows = await tasksSheet.getRows();
 
     const tasks: Record<string, any> = {};
     taskRows.forEach(row => {
         const id = row.get('id');
+
+        let parsedChecklist = [];
+        try {
+            parsedChecklist = JSON.parse(row.get('checklist') || '[]');
+        } catch (e) {
+            console.error(`Failed to parse checklist for task ${id}`, e);
+        }
+
         tasks[id] = {
             id,
             title: row.get('title'),
@@ -46,7 +54,8 @@ export async function fetchKanbanData() {
             isCompleted: row.get('isCompleted') === 'TRUE',
             isCancelled: row.get('isCancelled') === 'TRUE',
             isArchived: row.get('isArchived') === 'TRUE',
-            description: row.get('description'),
+            description: row.get('description') || '',
+            checklist: parsedChecklist,
         };
     });
 
@@ -130,7 +139,7 @@ export async function saveKanbanData(data: { tasks: any, columns: any, columnOrd
         const doc = await getGoogleSheet();
 
         // Update Tasks
-        const tasksSheet = doc.sheetsByTitle['Tasks'] || await doc.addSheet({ title: 'Tasks', headerValues: ['id', 'title', 'priority', 'deadline', 'dueDate', 'progress', 'isCompleted', 'isCancelled', 'isArchived', 'description'] });
+        const tasksSheet = doc.sheetsByTitle['Tasks'] || await doc.addSheet({ title: 'Tasks', headerValues: ['id', 'title', 'priority', 'deadline', 'dueDate', 'progress', 'isCompleted', 'isCancelled', 'isArchived', 'description', 'checklist'] });
         await tasksSheet.clearRows();
         const taskRows = Object.values(data.tasks).map((task: any) => ({
             id: task.id,
@@ -143,6 +152,7 @@ export async function saveKanbanData(data: { tasks: any, columns: any, columnOrd
             isCancelled: task.isCancelled ? 'TRUE' : 'FALSE',
             isArchived: task.isArchived ? 'TRUE' : 'FALSE',
             description: task.description || '',
+            checklist: JSON.stringify(task.checklist || []),
         }));
         if (taskRows.length > 0) {
             await tasksSheet.addRows(taskRows);
