@@ -84,21 +84,21 @@ const calculateTaskStatus = (dueDateStr: string | undefined, isCompleted: boolea
     const daysLate = Math.abs(diffDays);
     return {
       text: 'Lười thối thây!',
-      class: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 uppercase text-[10px] font-black px-2.5 py-0.5 rounded-full animate-pulse shadow-sm shadow-red-500/10',
+      class: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 uppercase text-[9px] sm:text-[10px] sm:px-2.5 px-2 py-0.5 font-black rounded-full animate-pulse shadow-sm shadow-red-500/10',
       lateText: `Trễ ${daysLate} ngày rồi đấy!`
     };
   } else if (diffHours <= 24) {
     // Due soon (within 24h)
     return {
       text: 'Vắt chân lên cổ mà chạy!',
-      class: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-sm',
+      class: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800 text-[9px] sm:text-[10px] font-bold px-2 sm:px-2.5 py-0.5 rounded-full shadow-sm',
       lateText: ''
     };
   } else {
     // On track
     return {
       text: 'Tạm chấp nhận',
-      class: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800 text-[10px] font-medium px-2.5 py-0.5 rounded-full',
+      class: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800 text-[9px] sm:text-[10px] font-medium px-2 sm:px-2.5 py-0.5 rounded-full',
       lateText: ''
     };
   }
@@ -754,7 +754,7 @@ export default function KanbanPage() {
                     return (
                       <div
                         key={column.id}
-                        className="w-full sm:flex-1 sm:min-w-[300px] sm:max-w-[450px] flex flex-col gap-4 sm:gap-3 sm:snap-start"
+                        className="w-full sm:flex-1 sm:min-w-[160px] flex flex-col gap-4 sm:gap-3 sm:snap-start"
                       >
                         <div className="flex items-center justify-between px-2 mb-1">
                           <div className="flex items-center gap-2">
@@ -821,8 +821,8 @@ export default function KanbanPage() {
                                             )}
                                           >
                                             <div className="flex justify-between items-start">
-                                              <div className="flex items-center gap-2">
-                                                <span className={cn("px-2 py-1 text-[10px] font-bold rounded uppercase tracking-tight", getPriorityClass(task.priority))}>
+                                              <div className="flex items-center gap-1.5 sm:gap-2">
+                                                <span className={cn("inline-block text-center leading-tight px-1.5 sm:px-2 py-1 text-[9px] sm:text-[10px] font-bold rounded uppercase tracking-tight break-words", getPriorityClass(task.priority))}>
                                                   {task.priority}
                                                 </span>
                                                 {task.iconName && renderTaskIcon(task.iconName)}
@@ -843,21 +843,21 @@ export default function KanbanPage() {
                                             </h4>
 
                                             {task.description && (
-                                              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5 mb-2 whitespace-pre-wrap">
+                                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-2 whitespace-pre-wrap break-words">
                                                 {task.description}
                                               </p>
                                             )}
 
                                             <div className="space-y-2 pt-1 border-t border-slate-50 dark:border-slate-800/50">
-                                              <div className="flex items-center justify-between text-[11px]">
-                                                <span className={cn("font-medium flex items-center gap-1", task.deadlineClass)}>
+                                              <div className="flex items-center justify-between text-[11px] gap-2">
+                                                <span className={cn("font-medium flex items-center gap-1 flex-shrink-0", task.deadlineClass)}>
                                                   {renderDeadlineIcon(task.deadlineIconName)}
                                                   {task.deadline}
                                                 </span>
                                                 {status.text && (
                                                   <Tooltip>
                                                     <TooltipTrigger asChild>
-                                                      <span className={cn("cursor-help shadow-sm whitespace-nowrap", status.class)}>{status.text}</span>
+                                                      <span className={cn("cursor-help shadow-sm inline-block text-center leading-tight break-words", status.class)}>{status.text}</span>
                                                     </TooltipTrigger>
                                                     <TooltipContent>
                                                       <p>{getTooltipText(task)}</p>
@@ -940,7 +940,7 @@ export default function KanbanPage() {
               <section className="flex flex-col sm:flex-row gap-8 sm:gap-6 overflow-x-auto no-scrollbar pb-24 px-4 snap-x">
                 {/* Skeleton columns matching initial layout */}
                 {[1, 2, 3, 4, 5].map(i => (
-                  <div key={i} className="flex-1 min-w-[300px] max-w-[450px] flex flex-col gap-3">
+                  <div key={i} className="flex-1 min-w-[160px] flex flex-col gap-3">
                     <div className="h-4 w-24 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
                     <div className="bg-slate-100/50 dark:bg-slate-900/50 rounded-2xl p-2 h-[300px] animate-pulse"></div>
                   </div>
