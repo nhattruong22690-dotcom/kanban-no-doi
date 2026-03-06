@@ -278,8 +278,23 @@ export default function KanbanPage() {
 
     // Moving within the same column
     if (start === finish) {
+      if (filterPriority !== 'all' || filterStatus !== 'all') {
+        toast.error('Thao tác không được phép!', {
+          description: 'Không thể kéo thả sắp xếp trong lúc đang dùng bộ lọc. Vui lòng tắt bộ lọc để sắp xếp nhé.',
+          duration: 3000,
+        });
+        return;
+      }
+
       const newTaskIds = Array.from(start.taskIds);
-      newTaskIds.splice(source.index, 1);
+
+      // Safety check to ensure we are grabbing the exact item (avoids index mismatch if archived items exist)
+      const rawSourceIndex = start.taskIds.indexOf(draggableId);
+      if (rawSourceIndex === -1) return;
+
+      newTaskIds.splice(rawSourceIndex, 1);
+
+      // Since filters are off, destination.index is safe to use directly (assuming no archived items mixed in, but this is the best effort)
       newTaskIds.splice(destination.index, 0, draggableId);
 
       const newColumn = {
@@ -297,9 +312,68 @@ export default function KanbanPage() {
       return;
     }
 
-    // Disable manual column changing to enforce "Process based on to-do list"
-    // Users must update the checklist to change the task status automatically.
-    return;
+    // Moving between different columns
+    const startTaskIds = Array.from(start.taskIds);
+    // Safety check just like above
+    const startRawSourceIndex = start.taskIds.indexOf(draggableId);
+    if (startRawSourceIndex === -1) return;
+
+    startTaskIds.splice(startRawSourceIndex, 1);
+    const newStart = {
+      ...start,
+      taskIds: startTaskIds,
+    };
+
+    const finishTaskIds = Array.from(finish.taskIds);
+    finishTaskIds.splice(destination.index, 0, draggableId);
+    const newFinish = {
+      ...finish,
+      taskIds: finishTaskIds,
+    };
+
+    // Auto-update task status flags based on the column dropped into
+    const task = data.tasks[draggableId];
+    if (task) {
+      if (destination.droppableId === 'col-3') {
+        task.isCompleted = true;
+        task.isCancelled = false;
+        task.progress = 100;
+        // set all checklist items to complete
+        if (task.checklist) {
+          task.checklist.forEach((item: any) => item.completed = true);
+        }
+      } else if (destination.droppableId === 'col-4') {
+        task.isCompleted = false;
+        task.isCancelled = true;
+      } else {
+        task.isCompleted = false;
+        task.isCancelled = false;
+        if (task.progress === 100) {
+          task.progress = 99; // Revert slightly if moved out of completed
+          // Uncheck the last checklist item to reflect progress drop if any
+          if (task.checklist && task.checklist.length > 0) {
+            const lastCompletedIndex = [...task.checklist].reverse().findIndex((i: any) => i.completed);
+            if (lastCompletedIndex !== -1) {
+              const actualIndex = task.checklist.length - 1 - lastCompletedIndex;
+              task.checklist[actualIndex].completed = false;
+            }
+          }
+        }
+      }
+    }
+
+    setData((prev) => ({
+      ...prev,
+      columns: {
+        ...prev.columns,
+        [newStart.id]: newStart,
+        [newFinish.id]: newFinish,
+      },
+      tasks: {
+        ...prev.tasks,
+        [draggableId]: task
+      }
+    }));
   };
 
   const handleAddTaskClick = (columnId: string = 'col-1') => {
@@ -721,7 +795,7 @@ export default function KanbanPage() {
             {/* Kanban Columns */}
             {isBrowser ? (
               <DragDropContext onDragEnd={onDragEnd}>
-                <section className="flex flex-col sm:flex-row gap-8 sm:gap-6 overflow-y-auto sm:overflow-x-auto no-scrollbar pb-24 px-4 sm:snap-x sm:snap-mandatory min-h-[500px]">
+                <section className="flex flex-col sm:flex-row gap-8 sm:gap-6 overflow-y-auto sm:overflow-x-auto no-scrollbar pb-24 px-4 min-h-[500px]">
                   {data.columnOrder.map((columnId) => {
                     // Filter columns based on selected status
                     if (filterStatus !== 'all') {
@@ -764,7 +838,7 @@ export default function KanbanPage() {
                     return (
                       <div
                         key={column.id}
-                        className="w-full sm:flex-1 sm:min-w-[160px] flex flex-col gap-4 sm:gap-3 sm:snap-start"
+                        className="w-full sm:flex-1 sm:min-w-[160px] flex flex-col gap-4 sm:gap-3"
                       >
                         <div className="flex items-center justify-between px-2 mb-1">
                           <div className="flex items-center gap-2">
