@@ -482,7 +482,7 @@ export default function KanbanPage() {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">
-        <div className="max-w-[1600px] mx-auto flex flex-col min-h-screen relative">
+        <div className="max-w-full mx-auto flex flex-col min-h-screen relative">
           <Toaster richColors position="top-right" />
           {/* Header */}
           <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-4 flex items-center justify-between">
@@ -707,7 +707,7 @@ export default function KanbanPage() {
             {/* Kanban Columns */}
             {isBrowser ? (
               <DragDropContext onDragEnd={onDragEnd}>
-                <section className="flex flex-col sm:flex-row gap-8 sm:gap-4 overflow-y-auto sm:overflow-x-auto no-scrollbar pb-10 -mx-4 px-4 sm:snap-x sm:snap-mandatory min-h-[500px] sm:scroll-pl-4">
+                <section className="flex flex-col sm:flex-row gap-8 sm:gap-6 overflow-y-auto sm:overflow-x-auto no-scrollbar pb-24 px-4 sm:snap-x sm:snap-mandatory min-h-[500px]">
                   {data.columnOrder.map((columnId) => {
                     const column = data.columns[columnId];
                     const tasks = column.taskIds.map((taskId) => data.tasks[taskId]).filter(task => {
@@ -742,7 +742,7 @@ export default function KanbanPage() {
                     return (
                       <div
                         key={column.id}
-                        className="w-full sm:w-[320px] sm:min-w-[320px] flex flex-col gap-4 sm:gap-3 sm:snap-start"
+                        className="w-full sm:flex-1 sm:min-w-[300px] sm:max-w-[450px] flex flex-col gap-4 sm:gap-3 sm:snap-start"
                       >
                         <div className="flex items-center justify-between px-2 mb-1">
                           <div className="flex items-center gap-2">
@@ -887,14 +887,15 @@ export default function KanbanPage() {
                       </div>
                     );
                   })}
+                  <div className="hidden sm:block min-w-[20px] h-full" aria-hidden="true" />
                 </section>
               </DragDropContext>
             ) : (
               // Server-side / Loading skeleton to prevent layout shift
-              <section className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-4 px-4 snap-x">
+              <section className="flex flex-col sm:flex-row gap-8 sm:gap-6 overflow-x-auto no-scrollbar pb-24 px-4 snap-x">
                 {/* Skeleton columns matching initial layout */}
-                {[1, 2, 3, 4].map(i => (
-                  <div key={i} className="min-w-[300px] w-[300px] flex flex-col gap-3">
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="flex-1 min-w-[300px] max-w-[450px] flex flex-col gap-3">
                     <div className="h-4 w-24 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
                     <div className="bg-slate-100/50 dark:bg-slate-900/50 rounded-2xl p-2 h-[300px] animate-pulse"></div>
                   </div>
