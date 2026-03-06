@@ -1,0 +1,5 @@
+{
+  "name": "Quản Lý Dự Án",
+  "description": "Ứng dụng quản lý dự án với giao diện Kanban, Gantt và Chi tiết công việc",
+  "requestFramePermissions": []
+}
