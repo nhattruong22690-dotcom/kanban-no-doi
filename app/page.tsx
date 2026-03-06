@@ -721,6 +721,14 @@ export default function KanbanPage() {
               <DragDropContext onDragEnd={onDragEnd}>
                 <section className="flex flex-col sm:flex-row gap-8 sm:gap-6 overflow-y-auto sm:overflow-x-auto no-scrollbar pb-24 px-4 sm:snap-x sm:snap-mandatory min-h-[500px]">
                   {data.columnOrder.map((columnId) => {
+                    // Filter columns based on selected status
+                    if (filterStatus !== 'all') {
+                      if ((filterStatus === 'due_soon' || filterStatus === 'overdue') && columnId !== 'col-1') return null;
+                      if (filterStatus === 'completed' && columnId !== 'col-3') return null;
+                      if (filterStatus === 'cancelled' && columnId !== 'col-4') return null;
+                      if (filterStatus === 'doing' && columnId !== 'col-2' && columnId !== 'col-5') return null;
+                    }
+
                     const column = data.columns[columnId];
                     const tasks = column.taskIds.map((taskId) => data.tasks[taskId]).filter(task => {
                       if (!task) return false;
