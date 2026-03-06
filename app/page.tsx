@@ -177,6 +177,7 @@ export default function KanbanPage() {
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [addTaskColumnId, setAddTaskColumnId] = useState('col-1');
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // Load data from Google Sheets instead of localStorage
   const [filterPriority, setFilterPriority] = useState('all');
@@ -194,6 +195,7 @@ export default function KanbanPage() {
           const fetchedData = await response.json();
           if (fetchedData && fetchedData.tasks) {
             setData(fetchedData);
+            setIsDataLoaded(true); // Mark as loaded safely
           }
         } else {
           toast.error('Máy chủ đang đình công!', {
@@ -215,7 +217,7 @@ export default function KanbanPage() {
 
   // Save data to Google Sheets whenever it changes
   useEffect(() => {
-    if (!isBrowser || isLoading) return;
+    if (!isBrowser || isLoading || !isDataLoaded) return;
 
     const saveData = async () => {
       try {
@@ -240,7 +242,7 @@ export default function KanbanPage() {
 
     const timer = setTimeout(saveData, 1000); // Debounce saves
     return () => clearTimeout(timer);
-  }, [data, isBrowser, isLoading]);
+  }, [data, isBrowser, isLoading, isDataLoaded]);
 
   // Check for overdue tasks on load
   useEffect(() => {
