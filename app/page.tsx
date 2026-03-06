@@ -849,15 +849,15 @@ export default function KanbanPage() {
                                             )}
 
                                             <div className="space-y-2 pt-1 border-t border-slate-50 dark:border-slate-800/50">
-                                              <div className="flex items-center justify-between text-[11px] gap-2">
-                                                <span className={cn("font-medium flex items-center gap-1 flex-shrink-0", task.deadlineClass)}>
+                                              <div className="flex flex-wrap items-center justify-between text-[11px] gap-2">
+                                                <span className={cn("font-medium flex items-center gap-1 flex-shrink max-w-full break-words leading-tight", task.deadlineClass)}>
                                                   {renderDeadlineIcon(task.deadlineIconName)}
-                                                  {task.deadline}
+                                                  <span className="line-clamp-2 break-all">{task.deadline}</span>
                                                 </span>
                                                 {status.text && (
                                                   <Tooltip>
                                                     <TooltipTrigger asChild>
-                                                      <span className={cn("cursor-help shadow-sm inline-block text-center leading-tight break-words", status.class)}>{status.text}</span>
+                                                      <span className={cn("cursor-help shadow-sm text-center leading-tight break-words max-w-full flex-shrink", status.class)}>{status.text}</span>
                                                     </TooltipTrigger>
                                                     <TooltipContent>
                                                       <p>{getTooltipText(task)}</p>
