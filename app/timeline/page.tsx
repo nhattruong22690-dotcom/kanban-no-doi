@@ -71,21 +71,38 @@ export default function TimelinePage() {
     const dueDate = new Date(task.dueDate);
     const dueDateNorm = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
 
-    // Estimate start date: if checklist exists, spread work over checklist items
-    const estimatedDays = task.checklist && task.checklist.length > 0
-      ? Math.max(task.checklist.length, 2)
-      : 3; // Default 3 days duration
+    // Use 'createdAt' (ngày tạo task) as start, 'dueDate' as end
+    let taskStart: Date;
+    if (task.createdAt) {
+      const dl = new Date(task.createdAt);
+      taskStart = new Date(dl.getFullYear(), dl.getMonth(), dl.getDate());
+    } else {
+      // Fallback: estimate start as 3 days before due
+      taskStart = new Date(dueDateNorm);
+      taskStart.setDate(taskStart.getDate() - 3);
+    }
 
-    const taskStart = new Date(dueDateNorm);
-    taskStart.setDate(taskStart.getDate() - estimatedDays);
+    // Ensure start is before end
+    if (taskStart > dueDateNorm) {
+      taskStart = new Date(dueDateNorm);
+      taskStart.setDate(taskStart.getDate() - 1);
+    }
 
     const startOffset = Math.round((taskStart.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
     const endOffset = Math.round((dueDateNorm.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
     const left = Math.max(0, startOffset) * DAY_WIDTH;
-    const width = Math.max(1, endOffset - Math.max(0, startOffset) + 1) * DAY_WIDTH;
+    const totalWidth = Math.max(1, endOffset - Math.max(0, startOffset) + 1) * DAY_WIDTH;
+    // Progress bar width within the total range
+    const progressWidth = Math.max(DAY_WIDTH * 0.5, totalWidth * (task.progress / 100));
 
-    return { left, width, isOverdue: dueDateNorm < today && !task.isCompleted };
+    return {
+      left,
+      totalWidth,
+      progressWidth,
+      isOverdue: dueDateNorm < today && !task.isCompleted,
+      startDate: taskStart,
+    };
   };
 
   // Today marker position
@@ -288,13 +305,23 @@ export default function TimelinePage() {
                         '--border-color': 'rgb(226 232 240 / 0.5)',
                       } as any}
                     >
+                      {/* Vệt mờ: full range từ ngày lên lịch → deadline */}
+                      <div
+                        className={cn(
+                          "absolute top-5 h-5 rounded-full opacity-15",
+                          barColor
+                        )}
+                        style={{ left: `${bar.left}px`, width: `${Math.max(bar.totalWidth, DAY_WIDTH)}px` }}
+                      />
+
+                      {/* Thanh Gantt chính: hiện tiến độ thực */}
                       <div
                         className={cn(
                           "absolute top-3 h-9 rounded-lg flex items-center gap-1.5 px-2 shadow-sm border cursor-pointer transition-transform hover:scale-[1.02]",
                           barColor, barText
                         )}
-                        style={{ left: `${bar.left}px`, width: `${Math.max(bar.width, DAY_WIDTH)}px` }}
-                        title={`${task.title}\nHạn: ${dueDate.toLocaleDateString('vi-VN')}\nTiến độ: ${task.progress}%`}
+                        style={{ left: `${bar.left}px`, width: `${Math.max(task.progress > 0 ? bar.progressWidth : bar.totalWidth, DAY_WIDTH)}px` }}
+                        title={`${task.title}\nBắt đầu: ${bar.startDate.toLocaleDateString('vi-VN')}\nHạn: ${dueDate.toLocaleDateString('vi-VN')}\nTiến độ: ${task.progress}%`}
                       >
                         {getStatusIcon(task)}
                         <span className="text-[9px] font-bold truncate">{task.title}</span>

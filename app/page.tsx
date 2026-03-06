@@ -57,6 +57,7 @@ type Task = {
   isCancelled?: boolean;
   isArchived?: boolean;
   description?: string;
+  createdAt?: string;
   checklist?: { id: string; text: string; completed: boolean }[];
 };
 
@@ -501,6 +502,7 @@ export default function KanbanPage() {
       progressClass: 'bg-blue-500',
       lateText: status.lateText,
       checklist: [],
+      createdAt: new Date().toISOString(),
     };
 
     setData(prev => {

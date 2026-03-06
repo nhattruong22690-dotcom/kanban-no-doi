@@ -10,7 +10,7 @@ const SCOPES = [
     'https://www.googleapis.com/auth/drive.file',
 ];
 
-const TASK_HEADERS = ['id', 'title', 'priority', 'deadline', 'dueDate', 'progress', 'isCompleted', 'isCancelled', 'isArchived', 'description', 'checklist'];
+const TASK_HEADERS = ['id', 'title', 'priority', 'deadline', 'dueDate', 'createdAt', 'progress', 'isCompleted', 'isCancelled', 'isArchived', 'description', 'checklist'];
 const COLUMN_HEADERS = ['id', 'title', 'taskIds'];
 const CONFIG_HEADERS = ['key', 'value'];
 const NOTIFICATION_HEADERS = ['id', 'type', 'title', 'description', 'time', 'timestamp', 'read', 'userName', 'userAvatar', 'userInitials'];
@@ -52,6 +52,7 @@ function taskToRow(task: any) {
         priority: task.priority || '',
         deadline: task.deadline || '',
         dueDate: task.dueDate || '',
+        createdAt: task.createdAt || new Date().toISOString(),
         progress: task.progress ?? 0,
         isCompleted: task.isCompleted ? 'TRUE' : 'FALSE',
         isCancelled: task.isCancelled ? 'TRUE' : 'FALSE',
@@ -90,6 +91,7 @@ export async function fetchKanbanData() {
                 priority: row.get('priority'),
                 deadline: row.get('deadline'),
                 dueDate: row.get('dueDate'),
+                createdAt: row.get('createdAt') || '',
                 progress: parseInt(row.get('progress') || '0'),
                 isCompleted: row.get('isCompleted') === 'TRUE',
                 isCancelled: row.get('isCancelled') === 'TRUE',
