@@ -134,51 +134,65 @@ export async function fetchKanbanData() {
     return { tasks, columns, columnOrder, notifications };
 }
 
-export async function saveKanbanData(data: { tasks: any, columns: any, columnOrder: string[], notifications?: any[] }) {
+export async function saveKanbanData(data: { tasks?: any, columns?: any, columnOrder?: string[], notifications?: any[] }) {
     try {
         const doc = await getGoogleSheet();
 
-        // Update Tasks
-        const tasksSheet = doc.sheetsByTitle['Tasks'] || await doc.addSheet({ title: 'Tasks', headerValues: ['id', 'title', 'priority', 'deadline', 'dueDate', 'progress', 'isCompleted', 'isCancelled', 'isArchived', 'description', 'checklist'] });
-        await tasksSheet.clearRows();
-        await tasksSheet.setHeaderRow(['id', 'title', 'priority', 'deadline', 'dueDate', 'progress', 'isCompleted', 'isCancelled', 'isArchived', 'description', 'checklist']);
-        const taskRows = Object.values(data.tasks).map((task: any) => ({
-            id: task.id,
-            title: task.title,
-            priority: task.priority,
-            deadline: task.deadline,
-            dueDate: task.dueDate,
-            progress: task.progress,
-            isCompleted: task.isCompleted ? 'TRUE' : 'FALSE',
-            isCancelled: task.isCancelled ? 'TRUE' : 'FALSE',
-            isArchived: task.isArchived ? 'TRUE' : 'FALSE',
-            description: task.description || '',
-            checklist: JSON.stringify(task.checklist || []),
-        }));
-        if (taskRows.length > 0) {
-            await tasksSheet.addRows(taskRows);
+        // 🛡️ CRITICAL SAFETY CHECK: 
+        // If data is provided but important maps like tasks or columns are missing, 
+        // DO NOT proceed to update those sheets. This prevents partial state overwrites.
+
+        // Update Tasks - ONLY if tasks are provided
+        if (data.tasks && Object.keys(data.tasks).length > 0) {
+            const tasksSheet = doc.sheetsByTitle['Tasks'] || await doc.addSheet({ title: 'Tasks', headerValues: ['id', 'title', 'priority', 'deadline', 'dueDate', 'progress', 'isCompleted', 'isCancelled', 'isArchived', 'description', 'checklist'] });
+            await tasksSheet.clearRows();
+            await tasksSheet.setHeaderRow(['id', 'title', 'priority', 'deadline', 'dueDate', 'progress', 'isCompleted', 'isCancelled', 'isArchived', 'description', 'checklist']);
+
+            const taskRows = Object.values(data.tasks).map((task: any) => ({
+                id: task.id,
+                title: task.title,
+                priority: task.priority,
+                deadline: task.deadline,
+                dueDate: task.dueDate,
+                progress: task.progress,
+                isCompleted: task.isCompleted ? 'TRUE' : 'FALSE',
+                isCancelled: task.isCancelled ? 'TRUE' : 'FALSE',
+                isArchived: task.isArchived ? 'TRUE' : 'FALSE',
+                description: task.description || '',
+                checklist: JSON.stringify(task.checklist || []),
+            }));
+
+            if (taskRows.length > 0) {
+                await tasksSheet.addRows(taskRows);
+            }
         }
 
-        // Update Columns
-        const columnsSheet = doc.sheetsByTitle['Columns'] || await doc.addSheet({ title: 'Columns', headerValues: ['id', 'title', 'taskIds'] });
-        await columnsSheet.clearRows();
-        const columnRows = Object.values(data.columns).map((col: any) => ({
-            id: col.id,
-            title: col.title,
-            taskIds: JSON.stringify(col.taskIds),
-        }));
-        if (columnRows.length > 0) {
-            await columnsSheet.addRows(columnRows);
+        // Update Columns - ONLY if provided
+        if (data.columns && Object.keys(data.columns).length > 0) {
+            const columnsSheet = doc.sheetsByTitle['Columns'] || await doc.addSheet({ title: 'Columns', headerValues: ['id', 'title', 'taskIds'] });
+            await columnsSheet.clearRows();
+            const columnRows = Object.values(data.columns).map((col: any) => ({
+                id: col.id,
+                title: col.title,
+                taskIds: JSON.stringify(col.taskIds),
+            }));
+            if (columnRows.length > 0) {
+                await columnsSheet.addRows(columnRows);
+            }
         }
 
-        // Update Config
-        const configSheet = doc.sheetsByTitle['Config'] || await doc.addSheet({ title: 'Config', headerValues: ['key', 'value'] });
-        await configSheet.clearRows();
-        await configSheet.addRows([
-            { key: 'columnOrder', value: JSON.stringify(data.columnOrder) }
-        ]);
+        // Update Config - ONLY if provided
+        if (data.columnOrder && data.columnOrder.length > 0) {
+            const configSheet = doc.sheetsByTitle['Config'] || await doc.addSheet({ title: 'Config', headerValues: ['key', 'value'] });
+            await configSheet.clearRows();
+            await configSheet.addRows([
+                { key: 'columnOrder', value: JSON.stringify(data.columnOrder) }
+            ]);
+        }
 
-        // Update Notifications
+        // Update Notifications - ONLY if provided
+        // We allow clearing notifications if they are an empty array (manual "mark all read" or cleanup)
+        // but only if the notifications property is explicitly present in the call.
         if (data.notifications) {
             const notificationsSheet = doc.sheetsByTitle['Notifications'] || await doc.addSheet({ title: 'Notifications', headerValues: ['id', 'type', 'title', 'description', 'time', 'timestamp', 'read', 'userName', 'userAvatar', 'userInitials'] });
             await notificationsSheet.clearRows();

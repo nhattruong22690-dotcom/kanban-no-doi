@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   MoreHorizontal
 } from 'lucide-react';
+import { useRef } from 'react';
 import { Toaster, toast } from 'sonner';
 import BottomNav from '@/components/BottomNav';
 import { cn } from '@/lib/utils';
@@ -31,77 +32,14 @@ type Notification = {
   };
 };
 
-const now = new Date();
-
-const initialNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'mention',
-    title: 'Mẹ Thiên Hạ đã réo tên bạn',
-    description: 'trong bình luận của "Làm xong đống này chưa?"',
-    time: '5 phút trước',
-    timestamp: new Date(now.getTime() - 5 * 60 * 1000).toISOString(),
-    read: false,
-    user: {
-      name: 'Mẹ Thiên Hạ',
-      avatar: 'bg-indigo-100 text-indigo-600',
-      initials: 'MTH'
-    }
-  },
-  {
-    id: '2',
-    type: 'deadline',
-    title: 'Sắp thăng thiên (Hết hạn)!',
-    description: 'Công việc "Thiết kế UI Dashboard" sắp thành di tích lịch sử rồi kìa!',
-    time: '2 giờ trước',
-    timestamp: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
-    read: false,
-  },
-  {
-    id: '3',
-    type: 'comment',
-    title: 'Bình luận mới',
-    description: 'Marcus đã trả lời bình luận của bạn trong "Database Optimization"',
-    time: '4 giờ trước',
-    timestamp: new Date(now.getTime() - 4 * 60 * 60 * 1000).toISOString(),
-    read: true,
-    user: {
-      name: 'Marcus Thorne',
-      avatar: 'bg-emerald-100 text-emerald-600',
-      initials: 'MT'
-    }
-  },
-  {
-    id: '4',
-    type: 'complete',
-    title: 'Công việc hoàn thành',
-    description: 'Elena đã hoàn thành "Setup OAuth2 Sandbox"',
-    time: 'Hôm qua, 14:30',
-    timestamp: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
-    read: true,
-    user: {
-      name: 'Elena Rodriguez',
-      avatar: 'bg-purple-100 text-purple-600',
-      initials: 'ER'
-    }
-  },
-  {
-    id: '5',
-    type: 'system',
-    title: 'Bảo trì hệ thống',
-    description: 'Hệ thống sẽ bảo trì vào 00:00 ngày mai',
-    time: 'Hôm qua, 09:00',
-    timestamp: new Date(now.getTime() - 29 * 60 * 60 * 1000).toISOString(),
-    read: true,
-  }
-];
-
 export default function NotificationsPage() {
   const [filter, setFilter] = useState<'all' | 'unread' | 'mentions'>('all');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isBrowser, setIsBrowser] = useState(false);
   const [data, setData] = useState<any>(null);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const lastSavedDataRef = useRef<string>('');
 
   useEffect(() => {
     setIsBrowser(true);
@@ -113,7 +51,9 @@ export default function NotificationsPage() {
           setData(fetchedData);
           if (fetchedData && fetchedData.notifications) {
             setNotifications(fetchedData.notifications);
+            lastSavedDataRef.current = JSON.stringify(fetchedData.notifications);
           }
+          setIsDataLoaded(true);
         }
       } catch (error) {
         console.error('Failed to fetch notifications', error);
@@ -127,15 +67,22 @@ export default function NotificationsPage() {
 
   // Save changes to server
   useEffect(() => {
-    if (!isBrowser || isLoading || !data) return;
+    if (!isBrowser || isLoading || !isDataLoaded) return;
+
+    const currentNotifsStr = JSON.stringify(notifications);
+    if (currentNotifsStr === lastSavedDataRef.current) return;
 
     const saveData = async () => {
       try {
-        await fetch('/api/data', {
+        const response = await fetch('/api/data', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...data, notifications }),
+          body: JSON.stringify({ notifications }), // ONLY send notifications
         });
+
+        if (response.ok) {
+          lastSavedDataRef.current = currentNotifsStr;
+        }
       } catch (error) {
         console.error('Failed to save notifications', error);
       }
@@ -143,7 +90,7 @@ export default function NotificationsPage() {
 
     const timer = setTimeout(saveData, 1000);
     return () => clearTimeout(timer);
-  }, [notifications, data, isBrowser, isLoading]);
+  }, [notifications, data, isBrowser, isLoading, isDataLoaded]);
 
   const markAllRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));

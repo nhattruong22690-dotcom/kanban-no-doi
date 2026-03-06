@@ -20,6 +20,7 @@ import {
   ChevronDown,
   CheckSquare
 } from 'lucide-react';
+import { useRef } from 'react';
 import { Toaster, toast } from 'sonner';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import {
@@ -63,10 +64,22 @@ type Column = {
   taskIds: string[];
 };
 
+export type Notification = {
+  id: string;
+  type: 'mention' | 'deadline' | 'system' | 'comment' | 'complete';
+  title: string;
+  description: string;
+  time: string;
+  timestamp: string;
+  read: boolean;
+  user?: { name: string; avatar: string; initials: string; };
+};
+
 type Data = {
   tasks: Record<string, Task>;
   columns: Record<string, Column>;
   columnOrder: string[];
+  notifications?: Notification[];
 };
 
 // Helper to calculate status based on due date
@@ -178,6 +191,7 @@ export default function KanbanPage() {
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [addTaskColumnId, setAddTaskColumnId] = useState('col-1');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const lastSavedDataRef = useRef<string>('');
 
   // Load data from Google Sheets instead of localStorage
   const [filterPriority, setFilterPriority] = useState('all');
@@ -195,6 +209,7 @@ export default function KanbanPage() {
           const fetchedData = await response.json();
           if (fetchedData && fetchedData.tasks) {
             setData(fetchedData);
+            lastSavedDataRef.current = JSON.stringify(fetchedData);
             setIsDataLoaded(true); // Mark as loaded safely
           }
         } else {
@@ -219,15 +234,21 @@ export default function KanbanPage() {
   useEffect(() => {
     if (!isBrowser || isLoading || !isDataLoaded) return;
 
+    // Deep check to avoid saving if nothing actually changed
+    const currentDataStr = JSON.stringify(data);
+    if (currentDataStr === lastSavedDataRef.current) return;
+
     const saveData = async () => {
       try {
         const response = await fetch('/api/data', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
+          body: currentDataStr,
         });
 
-        if (!response.ok) {
+        if (response.ok) {
+          lastSavedDataRef.current = currentDataStr;
+        } else {
           toast.error('Lưu nợ thất bại!', {
             description: 'Có vẻ Google đang dỗi. Sẽ thử lại sau 1 giây nhé!',
           });
@@ -362,18 +383,34 @@ export default function KanbanPage() {
       }
     }
 
-    setData((prev) => ({
-      ...prev,
-      columns: {
-        ...prev.columns,
-        [newStart.id]: newStart,
-        [newFinish.id]: newFinish,
-      },
-      tasks: {
-        ...prev.tasks,
-        [draggableId]: task
+    setData((prev) => {
+      let newLogs = prev.notifications || [];
+      if (start.id !== finish.id) {
+        newLogs = [{
+          id: `log-${Date.now()}`,
+          type: task.isCompleted ? 'complete' : 'system',
+          title: 'Nợ đã được luân chuyển',
+          description: `"${task.title}" vừa bị đá từ "${start.title}" sang "${finish.title}"`,
+          time: 'Vừa xong',
+          timestamp: new Date().toISOString(),
+          read: false,
+        }, ...newLogs];
       }
-    }));
+
+      return {
+        ...prev,
+        columns: {
+          ...prev.columns,
+          [newStart.id]: newStart,
+          [newFinish.id]: newFinish,
+        },
+        tasks: {
+          ...prev.tasks,
+          [draggableId]: task
+        },
+        notifications: newLogs
+      };
+    });
   };
 
   const handleAddTaskClick = (columnId: string = 'col-1') => {
@@ -417,13 +454,24 @@ export default function KanbanPage() {
         taskIds: [...prev.columns[targetColumnId].taskIds, newTaskId]
       };
 
+      const newLog: Notification = {
+        id: `log-${Date.now()}`,
+        type: 'system',
+        title: 'Nợ mới được khai sinh',
+        description: `"${newTask.title}" vừa được ném vào kho nợ.`,
+        time: 'Vừa xong',
+        timestamp: new Date().toISOString(),
+        read: false,
+      };
+
       return {
         ...prev,
         tasks: newTasks,
         columns: {
           ...prev.columns,
           [targetColumnId]: newColumn
-        }
+        },
+        notifications: [newLog, ...(prev.notifications || [])]
       };
     });
 
@@ -437,6 +485,7 @@ export default function KanbanPage() {
 
   const handleDeleteTask = (taskId: string) => {
     setData(prev => {
+      const deletedTask = prev.tasks[taskId];
       // Remove from tasks
       const newTasks = { ...prev.tasks };
       delete newTasks[taskId];
@@ -450,10 +499,21 @@ export default function KanbanPage() {
         };
       });
 
+      const newLog: Notification = {
+        id: `log-${Date.now()}`,
+        type: 'system',
+        title: 'Nợ đã bị xóa sổ',
+        description: `"${deletedTask?.title || 'Một nợ bí ẩn'}" đã không cánh mà bay khỏi bảng.`,
+        time: 'Vừa xong',
+        timestamp: new Date().toISOString(),
+        read: false,
+      };
+
       return {
         ...prev,
         tasks: newTasks,
-        columns: newColumns
+        columns: newColumns,
+        notifications: [newLog, ...(prev.notifications || [])]
       };
     });
     setSelectedTask(null);
@@ -496,10 +556,22 @@ export default function KanbanPage() {
       }
 
       const newTasks = { ...prev.tasks, [updatedTask.id]: updatedTask };
+
+      const newLog: Notification = {
+        id: `log-${Date.now()}`,
+        type: updatedTask.isCompleted ? 'complete' : 'system',
+        title: 'Nợ đã có biến đổi',
+        description: `"${updatedTask.title}" vừa được cập nhật nội dung trạng thái.`,
+        time: 'Vừa xong',
+        timestamp: new Date().toISOString(),
+        read: false,
+      };
+
       return {
         ...prev,
         columns: newColumns,
-        tasks: newTasks
+        tasks: newTasks,
+        notifications: [newLog, ...(prev.notifications || [])]
       };
     });
 
