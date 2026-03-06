@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -42,6 +42,8 @@ export default function TimelinePage() {
   const [isBrowser, setIsBrowser] = useState(false);
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const syncQueue = useRef(Promise.resolve());
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'idle'>('idle');
 
   const fetchData = async () => {
     try {
@@ -58,19 +60,28 @@ export default function TimelinePage() {
   };
 
   const callApi = async (action: string, payload: any) => {
-    try {
-      const response = await fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, payload }),
-      });
-      if (!response.ok) throw new Error('API call failed');
-      return await response.json();
-    } catch (error) {
-      console.error(`API Error (${action}):`, error);
-      toast.error('Có lỗi xảy ra khi đồng bộ.');
-      throw error;
-    }
+    setSyncStatus('syncing');
+
+    // Thêm vào hàng đợi xử lý tuần tự
+    syncQueue.current = syncQueue.current.then(async () => {
+      try {
+        const response = await fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, payload }),
+        });
+        if (!response.ok) throw new Error('API call failed');
+        setSyncStatus('synced');
+        return await response.json();
+      } catch (error) {
+        console.error(`API Error (${action}):`, error);
+        setSyncStatus('error');
+        toast.error('Có lỗi xảy ra khi đồng bộ.');
+        throw error;
+      }
+    });
+
+    return syncQueue.current;
   };
 
   const handleUpdateTask = async (updatedTask: Task) => {

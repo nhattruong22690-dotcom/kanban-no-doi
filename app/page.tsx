@@ -197,6 +197,7 @@ export default function KanbanPage() {
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'idle'>('idle');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const pendingSyncs = useRef(0);
+  const syncQueue = useRef(Promise.resolve());
 
   // Load data from Google Sheets instead of localStorage
   const [filterPriority, setFilterPriority] = useState('all');
@@ -262,37 +263,44 @@ export default function KanbanPage() {
   }, [isBrowser, fetchData]);
 
   // Helper: gọi API action-based (không bao giờ gửi toàn bộ state)
+  // Xử lý tuần tự để tránh race condition
   const callApi = async (action: string, payload: any) => {
     pendingSyncs.current += 1;
     setSyncStatus('syncing');
-    try {
-      const response = await fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, payload }),
-      });
-      if (!response.ok) {
-        const err = await response.json();
-        console.error(`API ${action} failed:`, err);
-        setSyncStatus('error');
-        toast.error('Lưu nợ thất bại!', {
-          description: `Thao tác "${action}" bị lỗi. Google đang dỗi!`,
+
+    // Chèn vào hàng đợi
+    syncQueue.current = syncQueue.current.then(async () => {
+      try {
+        const response = await fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, payload }),
         });
-      } else {
-        setLastSyncTime(new Date());
+        if (!response.ok) {
+          const err = await response.json();
+          console.error(`API ${action} failed:`, err);
+          setSyncStatus('error');
+          toast.error('Lưu nợ thất bại!', {
+            description: `Thao tác "${action}" bị lỗi. Google đang dỗi!`,
+          });
+        } else {
+          setLastSyncTime(new Date());
+        }
+      } catch (error) {
+        console.error(`API ${action} network error:`, error);
+        setSyncStatus('error');
+        toast.error('Mất kết nối!', {
+          description: 'Kiểm tra lại wifi/4G đi, không là mất hết nợ đấy!',
+        });
+      } finally {
+        pendingSyncs.current -= 1;
+        if (pendingSyncs.current === 0 && syncStatus !== 'error') {
+          setSyncStatus('synced');
+        }
       }
-    } catch (error) {
-      console.error(`API ${action} network error:`, error);
-      setSyncStatus('error');
-      toast.error('Mất kết nối!', {
-        description: 'Kiểm tra lại wifi/4G đi, không là mất hết nợ đấy!',
-      });
-    } finally {
-      pendingSyncs.current -= 1;
-      if (pendingSyncs.current === 0 && syncStatus !== 'error') {
-        setSyncStatus('synced');
-      }
-    }
+    });
+
+    return syncQueue.current;
   };
 
   // Check for overdue tasks on load
