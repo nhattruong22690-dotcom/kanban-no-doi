@@ -70,7 +70,16 @@ export default function TimelinePage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action, payload }),
         });
-        if (!response.ok) throw new Error('API call failed');
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          const errMsg = err.error || 'Lỗi không xác định';
+          console.error(`API ${action} failed (${response.status}):`, errMsg);
+          setSyncStatus('error');
+          toast.error('Có lỗi xảy ra khi đồng bộ.', {
+            description: errMsg,
+          });
+          throw new Error(errMsg);
+        }
         setSyncStatus('synced');
         return await response.json();
       } catch (error) {

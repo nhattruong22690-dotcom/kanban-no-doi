@@ -42,6 +42,35 @@ async function getOrCreateSheet(doc: GoogleSpreadsheet, title: string, headerVal
 }
 
 // ─────────────────────────────────────────────────────
+// Helper: Chờ (ms)
+// ─────────────────────────────────────────────────────
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// ─────────────────────────────────────────────────────
+// Helper: Thử lại khi gặp lỗi Quota (429) - Exponential Backoff
+// ─────────────────────────────────────────────────────
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+    let lastError: any;
+    for (let i = 0; i <= maxRetries; i++) {
+        try {
+            return await fn();
+        } catch (error: any) {
+            lastError = error;
+            const isQuotaError = error.message?.includes('429') || error.response?.status === 429;
+
+            if (isQuotaError && i < maxRetries) {
+                const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                console.warn(`⚠️ Google API Quota (429) exceeded. Retrying in ${Math.round(delay)}ms... (Attempt ${i + 1}/${maxRetries})`);
+                await sleep(delay);
+                continue;
+            }
+            throw error;
+        }
+    }
+    throw lastError;
+}
+
+// ─────────────────────────────────────────────────────
 // Helper: Serialize task object thành row data
 // ─────────────────────────────────────────────────────
 function taskToRow(task: any) {
@@ -187,14 +216,14 @@ export async function fetchKanbanData() {
 // ─────────────────────────────────────────────────────
 // TASK: Thêm mới (Append)
 // ─────────────────────────────────────────────────────
-export async function appendTask(task: any) {
+export async function appendTask(task: any, existingDoc?: GoogleSpreadsheet) {
     try {
         if (!task || !task.id || !task.title) {
             throw new Error('Cannot append task: missing required fields (id, title)');
         }
-        const doc = await getGoogleSheet();
+        const doc = existingDoc || await getGoogleSheet();
         const sheet = await getOrCreateSheet(doc, 'Tasks', TASK_HEADERS);
-        await sheet.addRow(taskToRow(task));
+        await withRetry(() => sheet.addRow(taskToRow(task)));
         console.log(`✅ Appended task: ${task.id}`);
     } catch (error: any) {
         console.error(`🔴 appendTask FAILED for ${task?.id}:`, error.message);
@@ -205,29 +234,27 @@ export async function appendTask(task: any) {
 // ─────────────────────────────────────────────────────
 // TASK: Cập nhật (Update in-place)
 // ─────────────────────────────────────────────────────
-export async function updateTask(taskId: string, taskData: any) {
+export async function updateTask(taskId: string, taskData: any, existingDoc?: GoogleSpreadsheet) {
     try {
         if (!taskId || !taskData) {
             throw new Error('Cannot update task: missing taskId or data');
         }
-        const doc = await getGoogleSheet();
+        const doc = existingDoc || await getGoogleSheet();
         const sheet = await getOrCreateSheet(doc, 'Tasks', TASK_HEADERS);
-        const rows = await sheet.getRows();
+        const rows = await withRetry(() => sheet.getRows());
         const targetRow = rows.find(r => r.get('id') === taskId);
 
         if (!targetRow) {
-            // Task not found → it might be new, append instead
             console.warn(`⚠️ Task ${taskId} not found for update, appending instead`);
-            await sheet.addRow(taskToRow(taskData));
+            await withRetry(() => sheet.addRow(taskToRow(taskData)));
             return;
         }
 
-        // Update each field in-place
         const rowData = taskToRow(taskData);
         Object.entries(rowData).forEach(([key, value]) => {
             targetRow.set(key, value);
         });
-        await targetRow.save();
+        await withRetry(() => targetRow.save());
         console.log(`✅ Updated task: ${taskId}`);
     } catch (error: any) {
         console.error(`🔴 updateTask FAILED for ${taskId}:`, error.message);
@@ -238,14 +265,14 @@ export async function updateTask(taskId: string, taskData: any) {
 // ─────────────────────────────────────────────────────
 // TASK: Xóa (Delete specific row)
 // ─────────────────────────────────────────────────────
-export async function deleteTask(taskId: string) {
+export async function deleteTask(taskId: string, existingDoc?: GoogleSpreadsheet) {
     try {
         if (!taskId) {
             throw new Error('Cannot delete task: missing taskId');
         }
-        const doc = await getGoogleSheet();
+        const doc = existingDoc || await getGoogleSheet();
         const sheet = await getOrCreateSheet(doc, 'Tasks', TASK_HEADERS);
-        const rows = await sheet.getRows();
+        const rows = await withRetry(() => sheet.getRows());
         const targetRow = rows.find(r => r.get('id') === taskId);
 
         if (!targetRow) {
@@ -253,7 +280,7 @@ export async function deleteTask(taskId: string) {
             return;
         }
 
-        await targetRow.delete();
+        await withRetry(() => targetRow.delete());
         console.log(`✅ Deleted task: ${taskId}`);
     } catch (error: any) {
         console.error(`🔴 deleteTask FAILED for ${taskId}:`, error.message);
@@ -264,14 +291,14 @@ export async function deleteTask(taskId: string) {
 // ─────────────────────────────────────────────────────
 // COLUMN: Cập nhật taskIds trong cột (Update in-place)
 // ─────────────────────────────────────────────────────
-export async function updateColumnTaskIds(colId: string, newTaskIds: string[]) {
+export async function updateColumnTaskIds(colId: string, newTaskIds: string[], existingDoc?: GoogleSpreadsheet) {
     try {
         if (!colId) {
             throw new Error('Cannot update column: missing colId');
         }
-        const doc = await getGoogleSheet();
+        const doc = existingDoc || await getGoogleSheet();
         const sheet = await getOrCreateSheet(doc, 'Columns', COLUMN_HEADERS);
-        const rows = await sheet.getRows();
+        const rows = await withRetry(() => sheet.getRows());
         const targetRow = rows.find(r => r.get('id') === colId);
 
         if (!targetRow) {
@@ -283,16 +310,16 @@ export async function updateColumnTaskIds(colId: string, newTaskIds: string[]) {
                 'col-3': 'Tu thành chính quả',
                 'col-4': 'Nằm thẳng (Bỏ cuộc)'
             };
-            await sheet.addRow({
+            await withRetry(() => sheet.addRow({
                 id: colId,
                 title: defaultColumnData[colId] || 'Cột mới',
                 taskIds: JSON.stringify(newTaskIds),
-            });
+            }));
             return;
         }
 
         targetRow.set('taskIds', JSON.stringify(newTaskIds));
-        await targetRow.save();
+        await withRetry(() => targetRow.save());
         console.log(`✅ Updated column ${colId} taskIds`);
     } catch (error: any) {
         console.error(`🔴 updateColumnTaskIds FAILED for ${colId}:`, error.message);
@@ -303,14 +330,14 @@ export async function updateColumnTaskIds(colId: string, newTaskIds: string[]) {
 // ─────────────────────────────────────────────────────
 // NOTIFICATION: Thêm mới (Append)
 // ─────────────────────────────────────────────────────
-export async function appendNotification(notification: any) {
+export async function appendNotification(notification: any, existingDoc?: GoogleSpreadsheet) {
     try {
         if (!notification || !notification.id) {
             throw new Error('Cannot append notification: missing id');
         }
-        const doc = await getGoogleSheet();
+        const doc = existingDoc || await getGoogleSheet();
         const sheet = await getOrCreateSheet(doc, 'Notifications', NOTIFICATION_HEADERS);
-        await sheet.addRow({
+        await withRetry(() => sheet.addRow({
             id: notification.id,
             type: notification.type || 'system',
             title: notification.title || '',
@@ -321,7 +348,7 @@ export async function appendNotification(notification: any) {
             userName: notification.user?.name || '',
             userAvatar: notification.user?.avatar || '',
             userInitials: notification.user?.initials || '',
-        });
+        }));
         console.log(`✅ Appended notification: ${notification.id}`);
     } catch (error: any) {
         console.error(`🔴 appendNotification FAILED:`, error.message);

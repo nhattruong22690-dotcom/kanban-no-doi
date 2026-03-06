@@ -250,12 +250,18 @@ export default function KanbanPage() {
     return () => clearInterval(interval);
   }, [isBrowser, fetchData]);
 
-  // 👁️ Refresh when user returns to tab
+  // 👁️ Refresh khi người dùng quay lại tab (có throttle 30s)
   useEffect(() => {
     if (!isBrowser) return;
+    let lastRefresh = Date.now();
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        fetchData(true);
+        const nowMs = Date.now();
+        if (nowMs - lastRefresh > 30000) { // Chỉ refresh nếu cách lần cuối > 30s
+          lastRefresh = nowMs;
+          fetchData(true);
+        }
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -277,11 +283,12 @@ export default function KanbanPage() {
           body: JSON.stringify({ action, payload }),
         });
         if (!response.ok) {
-          const err = await response.json();
-          console.error(`API ${action} failed:`, err);
+          const err = await response.json().catch(() => ({}));
+          const errMsg = err.error || 'Lỗi không xác định';
+          console.error(`API ${action} failed (${response.status}):`, errMsg);
           setSyncStatus('error');
           toast.error('Lưu nợ thất bại!', {
-            description: `Thao tác "${action}" bị lỗi. Google đang dỗi!`,
+            description: `Thao tác "${action}" bị lỗi: ${errMsg}`,
           });
         } else {
           setLastSyncTime(new Date());

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
     fetchKanbanData,
+    getGoogleSheet,
     appendTask,
     updateTask,
     deleteTask,
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
         }
 
         const { action, payload } = body;
+        const doc = await getGoogleSheet(); // Thao tác tập trung: lấy doc một lần để dùng chung
 
         switch (action) {
             // ── TASK OPERATIONS ──
@@ -49,12 +51,12 @@ export async function POST(request: Request) {
                     return NextResponse.json({ error: 'add_task requires payload.task and payload.columnId' }, { status: 400 });
                 }
                 // 1. Append the task row to Tasks sheet
-                await appendTask(payload.task);
+                await appendTask(payload.task, doc);
                 // 2. Update the target column's taskIds
-                await updateColumnTaskIds(payload.columnId, payload.columnTaskIds);
+                await updateColumnTaskIds(payload.columnId, payload.columnTaskIds, doc);
                 // 3. Optionally append a notification log
                 if (payload.notification) {
-                    await appendNotification(payload.notification);
+                    await appendNotification(payload.notification, doc);
                 }
                 return NextResponse.json({ success: true });
             }
@@ -63,17 +65,17 @@ export async function POST(request: Request) {
                 if (!payload || !payload.taskId || !payload.task) {
                     return NextResponse.json({ error: 'update_task requires payload.taskId and payload.task' }, { status: 400 });
                 }
-                await updateTask(payload.taskId, payload.task);
+                await updateTask(payload.taskId, payload.task, doc);
                 // If columns changed (task moved between columns), update both columns
                 if (payload.fromColId && payload.toColId && payload.fromColTaskIds && payload.toColTaskIds) {
-                    await updateColumnTaskIds(payload.fromColId, payload.fromColTaskIds);
-                    await updateColumnTaskIds(payload.toColId, payload.toColTaskIds);
+                    await updateColumnTaskIds(payload.fromColId, payload.fromColTaskIds, doc);
+                    await updateColumnTaskIds(payload.toColId, payload.toColTaskIds, doc);
                 } else if (payload.columnId && payload.columnTaskIds) {
                     // Single column update (e.g., task stays in same column but order changed)
-                    await updateColumnTaskIds(payload.columnId, payload.columnTaskIds);
+                    await updateColumnTaskIds(payload.columnId, payload.columnTaskIds, doc);
                 }
                 if (payload.notification) {
-                    await appendNotification(payload.notification);
+                    await appendNotification(payload.notification, doc);
                 }
                 return NextResponse.json({ success: true });
             }
@@ -82,15 +84,15 @@ export async function POST(request: Request) {
                 if (!payload || !payload.taskId) {
                     return NextResponse.json({ error: 'delete_task requires payload.taskId' }, { status: 400 });
                 }
-                await deleteTask(payload.taskId);
+                await deleteTask(payload.taskId, doc);
                 // Update all affected columns
                 if (payload.columnUpdates) {
                     for (const col of payload.columnUpdates) {
-                        await updateColumnTaskIds(col.colId, col.taskIds);
+                        await updateColumnTaskIds(col.colId, col.taskIds, doc);
                     }
                 }
                 if (payload.notification) {
-                    await appendNotification(payload.notification);
+                    await appendNotification(payload.notification, doc);
                 }
                 return NextResponse.json({ success: true });
             }
@@ -101,17 +103,17 @@ export async function POST(request: Request) {
                 }
                 // Update the task itself (status flags may change)
                 if (payload.task) {
-                    await updateTask(payload.taskId, payload.task);
+                    await updateTask(payload.taskId, payload.task, doc);
                 }
                 // Update source and destination column taskIds
                 if (payload.fromColId && payload.fromColTaskIds) {
-                    await updateColumnTaskIds(payload.fromColId, payload.fromColTaskIds);
+                    await updateColumnTaskIds(payload.fromColId, payload.fromColTaskIds, doc);
                 }
                 if (payload.toColId && payload.toColTaskIds) {
-                    await updateColumnTaskIds(payload.toColId, payload.toColTaskIds);
+                    await updateColumnTaskIds(payload.toColId, payload.toColTaskIds, doc);
                 }
                 if (payload.notification) {
-                    await appendNotification(payload.notification);
+                    await appendNotification(payload.notification, doc);
                 }
                 return NextResponse.json({ success: true });
             }
@@ -121,7 +123,7 @@ export async function POST(request: Request) {
                 if (!payload || !payload.columnId || !payload.columnTaskIds) {
                     return NextResponse.json({ error: 'reorder_task requires payload.columnId and payload.columnTaskIds' }, { status: 400 });
                 }
-                await updateColumnTaskIds(payload.columnId, payload.columnTaskIds);
+                await updateColumnTaskIds(payload.columnId, payload.columnTaskIds, doc);
                 return NextResponse.json({ success: true });
             }
 
@@ -130,7 +132,7 @@ export async function POST(request: Request) {
                 if (!payload || !payload.notification) {
                     return NextResponse.json({ error: 'add_notification requires payload.notification' }, { status: 400 });
                 }
-                await appendNotification(payload.notification);
+                await appendNotification(payload.notification, doc);
                 return NextResponse.json({ success: true });
             }
 
@@ -162,7 +164,9 @@ export async function POST(request: Request) {
                 );
         }
     } catch (error: any) {
-        console.error('🔴 Error processing action:', error.message);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('🔴 Error processing action:', errorMessage);
+        if (error.stack) console.error(error.stack);
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
