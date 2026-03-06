@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   Search,
@@ -18,7 +18,10 @@ import {
   FileText,
   Activity,
   ChevronDown,
-  CheckSquare
+  CheckSquare,
+  Wifi,
+  WifiOff,
+  RefreshCw
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -190,45 +193,77 @@ export default function KanbanPage() {
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [addTaskColumnId, setAddTaskColumnId] = useState('col-1');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'idle'>('idle');
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const pendingSyncs = useRef(0);
 
   // Load data from Google Sheets instead of localStorage
   const [filterPriority, setFilterPriority] = useState('all');
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'due_soon', 'overdue'
+  const [filterStatus, setFilterStatus] = useState('all');
 
-
-  useEffect(() => {
-    setIsBrowser(true);
-
-    const fetchData = async () => {
-      try {
-        const response = await fetch('/api/data');
-        if (response.ok) {
-          const fetchedData = await response.json();
-          if (fetchedData && fetchedData.tasks) {
-            setData(fetchedData);
-            setIsDataLoaded(true); // Mark as loaded safely
+  // Fetch data function (reusable for polling + focus refresh)
+  const fetchData = useCallback(async (silent = false) => {
+    try {
+      const response = await fetch('/api/data');
+      if (response.ok) {
+        const fetchedData = await response.json();
+        if (fetchedData && fetchedData.tasks) {
+          setData(fetchedData);
+          setIsDataLoaded(true);
+          setLastSyncTime(new Date());
+          if (pendingSyncs.current === 0) {
+            setSyncStatus('synced');
           }
-        } else {
-          toast.error('Máy chủ đang đình công!', {
-            description: 'Nó bảo nợ nhiều quá không muốn làm việc nữa. Thử reload xem sao!',
-          });
         }
-      } catch (error) {
-        console.error('Failed to fetch data', error);
+      } else if (!silent) {
+        toast.error('Máy chủ đang đình công!', {
+          description: 'Nó bảo nợ nhiều quá không muốn làm việc nữa. Thử reload xem sao!',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch data', error);
+      if (!silent) {
         toast.error('Kết nối mạng như... hạch!', {
           description: 'Không tải được nợ đời rồi. Kiểm tra lại mạng nhé!',
         });
-      } finally {
-        setIsLoading(false);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    setIsBrowser(true);
+    fetchData();
+  }, [fetchData]);
+
+  // ⏰ Auto-polling every 60 seconds
+  useEffect(() => {
+    if (!isBrowser) return;
+    const interval = setInterval(() => {
+      fetchData(true); // silent refresh, no toast on error
+    }, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [isBrowser, fetchData]);
+
+  // 👁️ Refresh when user returns to tab
+  useEffect(() => {
+    if (!isBrowser) return;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchData(true);
       }
     };
-
-    fetchData();
-  }, []);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isBrowser, fetchData]);
 
   // Helper: gọi API action-based (không bao giờ gửi toàn bộ state)
   const callApi = async (action: string, payload: any) => {
+    pendingSyncs.current += 1;
+    setSyncStatus('syncing');
     try {
       const response = await fetch('/api/data', {
         method: 'POST',
@@ -238,15 +273,24 @@ export default function KanbanPage() {
       if (!response.ok) {
         const err = await response.json();
         console.error(`API ${action} failed:`, err);
+        setSyncStatus('error');
         toast.error('Lưu nợ thất bại!', {
           description: `Thao tác "${action}" bị lỗi. Google đang dỗi!`,
         });
+      } else {
+        setLastSyncTime(new Date());
       }
     } catch (error) {
       console.error(`API ${action} network error:`, error);
+      setSyncStatus('error');
       toast.error('Mất kết nối!', {
         description: 'Kiểm tra lại wifi/4G đi, không là mất hết nợ đấy!',
       });
+    } finally {
+      pendingSyncs.current -= 1;
+      if (pendingSyncs.current === 0 && syncStatus !== 'error') {
+        setSyncStatus('synced');
+      }
     }
   };
 
@@ -738,7 +782,24 @@ export default function KanbanPage() {
               </h1>
               <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Sào huyệt của bạn</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              {/* Sync Status Indicator */}
+              <button
+                onClick={() => fetchData(false)}
+                title={lastSyncTime ? `Lần đồng bộ cuối: ${lastSyncTime.toLocaleTimeString('vi-VN')}` : 'Đang tải...'}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all",
+                  syncStatus === 'synced' && "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800",
+                  syncStatus === 'syncing' && "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 animate-pulse",
+                  syncStatus === 'error' && "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800",
+                  syncStatus === 'idle' && "bg-slate-50 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700"
+                )}
+              >
+                {syncStatus === 'synced' && <><Wifi className="w-3 h-3" /> Đã đồng bộ</>}
+                {syncStatus === 'syncing' && <><RefreshCw className="w-3 h-3 animate-spin" /> Đang lưu...</>}
+                {syncStatus === 'error' && <><WifiOff className="w-3 h-3" /> Lỗi đồng bộ</>}
+                {syncStatus === 'idle' && <><RefreshCw className="w-3 h-3" /> Đang tải...</>}
+              </button>
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white dark:border-slate-800">
                 ME
               </div>
