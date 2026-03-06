@@ -374,7 +374,10 @@ export default function TaskDetailModal({ isOpen, onClose, task, onDelete, onUpd
                 </div>
                 <div className="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div
-                    className={cn("h-full rounded-full transition-all duration-500", task.progressClass)}
+                    className={cn(
+                      "h-full rounded-full transition-all duration-500",
+                      task.progress === 100 ? "bg-emerald-500" : task.progress > 0 ? "bg-blue-500 dark:bg-blue-400" : "bg-slate-300 dark:bg-slate-600"
+                    )}
                     style={{ width: `${task.progress}%` }}
                   ></div>
                 </div>

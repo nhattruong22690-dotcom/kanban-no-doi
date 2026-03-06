@@ -17,7 +17,8 @@ import {
   Layout,
   FileText,
   Activity,
-  ChevronDown
+  ChevronDown,
+  CheckSquare
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -425,7 +426,12 @@ export default function KanbanPage() {
         tasks: newTasks
       };
     });
-    setSelectedTask(null);
+
+    // Update the selected task to keep the modal open and reflect new changes
+    if (selectedTask && selectedTask.id === updatedTask.id) {
+      setSelectedTask(updatedTask);
+    }
+
     if (updatedTask.isArchived) {
       toast.success('Đã đưa vào Nghĩa địa!', {
         description: `Tạm biệt: ${updatedTask.title}`,
@@ -832,7 +838,14 @@ export default function KanbanPage() {
                                         <h4 className={cn("text-sm font-bold leading-snug text-slate-800 dark:text-slate-100", task.isCompleted && "line-through text-slate-500 dark:text-slate-400")}>
                                           {task.title}
                                         </h4>
-                                        <div className="space-y-2">
+
+                                        {task.description && (
+                                          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5 whitespace-pre-wrap">
+                                            {task.description}
+                                          </p>
+                                        )}
+
+                                        <div className="space-y-2 pt-1 border-t border-slate-50 dark:border-slate-800/50">
                                           <div className="flex items-center justify-between text-[11px]">
                                             <span className={cn("font-medium flex items-center gap-1", task.deadlineClass)}>
                                               {renderDeadlineIcon(task.deadlineIconName)}
@@ -849,9 +862,30 @@ export default function KanbanPage() {
                                               </Tooltip>
                                             )}
                                           </div>
-                                          <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+
+                                          {/* Checklist & Progress */}
+                                          {task.checklist && task.checklist.length > 0 && (
+                                            <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1">
+                                              <div className="flex items-center gap-1.5">
+                                                <CheckSquare className="w-3 h-3" />
+                                                <span>{task.checklist.filter((i: any) => i.completed).length}/{task.checklist.length}</span>
+                                              </div>
+                                              <span>{task.progress}%</span>
+                                            </div>
+                                          )}
+
+                                          {(!task.checklist || task.checklist.length === 0) && task.progress > 0 && (
+                                            <div className="flex items-center justify-end text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1">
+                                              <span>{task.progress}%</span>
+                                            </div>
+                                          )}
+
+                                          <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-700/50 rounded-full overflow-hidden mt-1.5">
                                             <div
-                                              className={cn("h-full rounded-full", task.progressClass)}
+                                              className={cn(
+                                                "h-full rounded-full transition-all duration-500",
+                                                task.progress === 100 ? "bg-emerald-500" : "bg-blue-500 dark:bg-blue-400"
+                                              )}
                                               style={{ width: `${task.progress}%` }}
                                             ></div>
                                           </div>
